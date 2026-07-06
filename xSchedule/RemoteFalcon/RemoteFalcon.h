@@ -50,19 +50,19 @@ class RemoteFalcon
             return s;
         }
 
-        std::string FetchCurrentPlaylistFromQueue()
+        std::string FetchCurrentPlaylistFromQueue(int* responseCode = nullptr)
         {
-            return CurlManager::HTTPSGet(_URLBase + "/nextPlaylistInQueue", "", "", 10, { {"remotetoken", __token} });
+            return CurlManager::HTTPSGet(_URLBase + "/nextPlaylistInQueue", "", "", 10, { {"remotetoken", __token} }, responseCode);
         }
 
-        std::string FetchRemotePreferences()
+        std::string FetchRemotePreferences(int* responseCode = nullptr)
         {
-            return CurlManager::HTTPSGet(_URLBase + "/remotePreferences", "", "", 10, { {"remotetoken", __token} });
+            return CurlManager::HTTPSGet(_URLBase + "/remotePreferences", "", "", 10, { {"remotetoken", __token} }, responseCode);
         }
 
-        std::string FetchHighestVotedPlaylist()
+        std::string FetchHighestVotedPlaylist(int* responseCode = nullptr)
         {
-            return CurlManager::HTTPSGet(_URLBase + "/highestVotedPlaylist", "", "", 10, { {"remotetoken", __token} });
+            return CurlManager::HTTPSGet(_URLBase + "/highestVotedPlaylist", "", "", 10, { {"remotetoken", __token} }, responseCode);
         }
 
         std::string UpdatePlaylistQueue()
@@ -72,10 +72,10 @@ class RemoteFalcon
             return CurlManager::HTTPSPost(_URLBase + "/updatePlaylistQueue", val.dump(), "", "", "JSON", 10, { { "remotetoken", __token } });
         }
 
-        std::string PurgeQueue() {
+        std::string PurgeQueue(int* responseCode = nullptr) {
             nlohmann::json val;
             val["remoteToken"] = __token;
-            return CurlManager::HTTPSDelete(_URLBase + "/purgeQueue", val.dump(), "", "", "JSON", 10, { { "remotetoken", __token } });
+            return CurlManager::HTTPSDelete(_URLBase + "/purgeQueue", val.dump(), "", "", "JSON", 10, { { "remotetoken", __token } }, responseCode);
         }
 
         std::string EnableMangaedPSA(bool enable) {
@@ -101,7 +101,7 @@ class RemoteFalcon
             return CurlManager::HTTPSPost(_URLBase + "/updateWhatsPlaying", val.dump(), "", "", "JSON", 10, { {"remotetoken", __token} });
         }
 
-        std::string SyncPlayLists(const std::string& playlist, const std::string& steps)
+        std::string SyncPlayLists(const std::string& playlist, const std::string& steps, int* responseCode = nullptr)
         {
             nlohmann::json val;
             val["remoteToken"] = __token;
@@ -135,6 +135,6 @@ class RemoteFalcon
             auto const url = _URLBase + "/syncPlaylists";
             spdlog::debug(RemoteFalcon::DeTokenfy(url));
             spdlog::debug(RemoteFalcon::DeTokenfy(val.dump()));
-            return CurlManager::HTTPSPost(url, val.dump(), "", "", "JSON", 10, { {"remotetoken", __token} });
+            return CurlManager::HTTPSPost(url, val.dump(), "", "", "JSON", 10, { {"remotetoken", __token} }, responseCode);
         }
 };
