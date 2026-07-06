@@ -45,6 +45,11 @@
 #include <log.h>
 
 //helper functions
+static bool IsHttpErrorCode(int responseCode)
+{
+    return responseCode != 0 && (responseCode < 200 || responseCode >= 300);
+}
+
 enum wxbuildinfoformat {
     short_f, long_f };
 
@@ -118,25 +123,29 @@ void RemoteFalconFrame::DoSendPlaylists() {
         // no need to send
     } else {
         AddMessage(MESSAGE_LEVEL::ML_INFO, "Uploading playlist to Remote Falcon.");
-        auto const res = _remoteFalcon->SyncPlayLists(_playlist, plsteps);
+        int responseCode = 0;
+        auto const res = _remoteFalcon->SyncPlayLists(_playlist, plsteps, &responseCode);
         AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + res);
+
+        if (IsHttpErrorCode(responseCode)) {
+            AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: Remote Falcon rejected the request (HTTP " + std::to_string(responseCode) + "): " + res);
+            return;
+        }
 
         try {
             nlohmann::json const val = nlohmann::json::parse(res);
 
-            if (!val.is_null()) {
-                if (val["message"].get<std::string>() == "Success") {
-                    _oldSteps = plsteps;
-                } else if (!val["message"].is_null()) {
-                    AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + val["message"].get<std::string>());
-                }
-            } else {
+            if (!val.is_null() && !val["message"].is_null() && val["message"].get<std::string>() == "Success") {
+                _oldSteps = plsteps;
+            } else if (!val.is_null() && !val["message"].is_null()) {
+                AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + val["message"].get<std::string>());
+            } else if (val.is_null()) {
                 AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: uploading playlist to remote falcon.");
             }
         }
         catch (const nlohmann::json::exception& ex) {
             AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + std::string(ex.what()));
-            
+
         } catch (const std::exception& ex) {
             AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + std::string(ex.what()));
         }
@@ -266,25 +275,28 @@ RemoteFalconFrame::RemoteFalconFrame(wxWindow* parent, const std::string& showDi
     if (_options.GetClearQueueOnStart()) {
         AddMessage(MESSAGE_LEVEL::ML_INFO, "Clearing remote falcon list of songs.");
 
-        auto res = _remoteFalcon->PurgeQueue();
+        int responseCode = 0;
+        auto res = _remoteFalcon->PurgeQueue(&responseCode);
 
-        try {
-            nlohmann::json const val = nlohmann::json::parse(res);
+        if (IsHttpErrorCode(responseCode)) {
+            AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: Remote Falcon rejected the request (HTTP " + std::to_string(responseCode) + "): " + res);
+        } else {
+            try {
+                nlohmann::json const val = nlohmann::json::parse(res);
 
-            if (!val.is_null()) {
-                if (val["message"].get<std::string>() == "Success") {
+                if (!val.is_null() && !val["message"].is_null() && val["message"].get<std::string>() == "Success") {
                     AddMessage(MESSAGE_LEVEL::ML_INFO, "Cleared remote falcon list of songs.");
-                } else {
+                } else if (!val.is_null() && !val["message"].is_null()) {
                     AddMessage(MESSAGE_LEVEL::ML_ERROR, "Error: " + val["message"].get<std::string>());
+                } else {
+                    AddMessage(MESSAGE_LEVEL::ML_ERROR, "Error: " + res);
                 }
-            } else {
-                AddMessage(MESSAGE_LEVEL::ML_ERROR, "Error: " + res);
-            }
-        } catch (const nlohmann::json::exception& ex) {
-            AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + std::string(ex.what()));
+            } catch (const nlohmann::json::exception& ex) {
+                AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + std::string(ex.what()));
 
-        } catch (const std::exception& ex) {
-            AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + std::string(ex.what()));
+            } catch (const std::exception& ex) {
+                AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + std::string(ex.what()));
+            }
         }
     }
     ValidateWindow();
@@ -498,11 +510,18 @@ void RemoteFalconFrame::SendPlayingSong(const std::string& playing)
 void RemoteFalconFrame::GetMode()
 {
     AddMessage(MESSAGE_LEVEL::ML_DEBUG, "Fetching current playing mode ...");
-    auto res = _remoteFalcon->FetchRemotePreferences();
+    int responseCode = 0;
+    auto res = _remoteFalcon->FetchRemotePreferences(&responseCode);
     AddMessage(MESSAGE_LEVEL::ML_DEBUG, res);
 
     _mode = "";
     _subdomain = "";
+
+    if (IsHttpErrorCode(responseCode)) {
+        AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: Remote Falcon rejected the request (HTTP " + std::to_string(responseCode) + "): " + res);
+        _mode = "jukebox";
+        return;
+    }
 
     try {
         nlohmann::json const val = nlohmann::json::parse(res);
@@ -551,14 +570,20 @@ void RemoteFalconFrame::GetAndPlaySong(const std::string& playing)
 
     AddMessage(MESSAGE_LEVEL::ML_DEBUG, "Asking remote falcon for the song we should be playing.");
     std::string song;
+    int responseCode = 0;
 
     if (_mode == "voting") {
-        song = _remoteFalcon->FetchHighestVotedPlaylist();
+        song = _remoteFalcon->FetchHighestVotedPlaylist(&responseCode);
     }
     else {
-        song = _remoteFalcon->FetchCurrentPlaylistFromQueue();
+        song = _remoteFalcon->FetchCurrentPlaylistFromQueue(&responseCode);
     }
     AddMessage(MESSAGE_LEVEL::ML_DEBUG, "    " + song);
+
+    if (IsHttpErrorCode(responseCode)) {
+        AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: Remote Falcon rejected the request (HTTP " + std::to_string(responseCode) + "): " + song);
+        return;
+    }
 
     try {
         nlohmann::json const val = nlohmann::json::parse(song);
@@ -615,13 +640,19 @@ void RemoteFalconFrame::GetAndPlayEffect() {
 
     AddMessage(MESSAGE_LEVEL::ML_DEBUG, "Asking remote falcon for the effect we should be playing.");
     std::string song;
+    int responseCode = 0;
 
     if (_mode == "voting") {
-        song = _remoteFalcon->FetchHighestVotedPlaylist();
+        song = _remoteFalcon->FetchHighestVotedPlaylist(&responseCode);
     } else {
-        song = _remoteFalcon->FetchCurrentPlaylistFromQueue();
+        song = _remoteFalcon->FetchCurrentPlaylistFromQueue(&responseCode);
     }
     AddMessage(MESSAGE_LEVEL::ML_DEBUG, "    " + song);
+
+    if (IsHttpErrorCode(responseCode)) {
+        AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: Remote Falcon rejected the request (HTTP " + std::to_string(responseCode) + "): " + song);
+        return;
+    }
 
     try {
         nlohmann::json const val = nlohmann::json::parse(song);
@@ -675,9 +706,7 @@ void RemoteFalconFrame::DoNotifyStatus(const std::string& status)
                 if (effects.size() > 0)
                     playing = effects.front();
             } else {
-                if (!val["step"].is_null()) {
-                    playing = val["step"].get<std::string>();
-                }
+                playing = val.value("step", std::string());
             }
 
             if (_lastPlaying != playing) {
@@ -685,13 +714,13 @@ void RemoteFalconFrame::DoNotifyStatus(const std::string& status)
                 _lastPlaying = playing;
             }
 
-            auto trigger = val["trigger"].get<std::string>();
+            auto trigger = val.value("trigger", std::string());
 
             // Only play songs if a schedule is playing
             if (trigger == "scheduled" || trigger == "queued") {
-                int queueLength = wxAtoi(val["queuelength"].get<std::string>());
-                auto lefts = wxAtol(val["leftms"].get<std::string>()) / 1000;
-                _playingPlaylist = val["playlist"].get<std::string>();
+                int queueLength = wxAtoi(val.value("queuelength", std::string()));
+                auto lefts = wxAtol(val.value("leftms", std::string())) / 1000;
+                _playingPlaylist = val.value("playlist", std::string());
 
                 // we can only play a song if the playlist playing allows
                 if (_options.IsPlayDuring(_playingPlaylist) || _playingPlaylist == "Song Queue") {
