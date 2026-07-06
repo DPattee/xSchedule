@@ -28,6 +28,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "D
 Source: "../../xSchedule/x64/Release/xSchedule.exe"; DestDir: "{app}"
 Source: "../../xlights/include/xSchedule64.ico"; DestDir: "{app}"; Flags: "ignoreversion"
 Source: "../../bin/xScheduleWeb\*.*"; DestDir: "{app}/xScheduleWeb"; Flags: ignoreversion recursesubdirs
+Source: "../../xlights/controllers\*.xcontroller"; DestDir: "{app}/controllers"; Flags: ignoreversion
 
 ; xSMSDaemon
 Source: "../../xSchedule/xSMSDaemon/x64/Release/xSMSDaemon.dll"; DestDir: "{app}"

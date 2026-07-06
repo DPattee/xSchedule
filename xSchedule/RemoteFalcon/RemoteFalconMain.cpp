@@ -27,7 +27,7 @@
 #include <wx/dirdlg.h>
 #include <wx/url.h>
 
-#include "../../xlights/xLights/xLightsVersion.h"
+#include "../xScheduleVersion.h"
 #include "RemoteFalconMain.h"
 #include "RemoteFalconSettingsDialog.h"
 #include "RemoteFalconOptions.h"
@@ -48,6 +48,20 @@
 static bool IsHttpErrorCode(int responseCode)
 {
     return responseCode != 0 && (responseCode < 200 || responseCode >= 300);
+}
+
+// Remote Falcon has been observed returning some fields (eg queuelength, leftms)
+// as native JSON numbers rather than strings depending on the account/backend
+// version. nlohmann's val.value(key, std::string()) still throws type_error.302
+// in that case, so pull the value out ourselves and stringify whatever we find.
+static std::string JsonAsString(const nlohmann::json& val, const std::string& key, const std::string& def = "")
+{
+    if (!val.is_object()) return def;
+    auto it = val.find(key);
+    if (it == val.end() || it->is_null()) return def;
+    if (it->is_string()) return it->get<std::string>();
+    if (it->is_boolean()) return it->get<bool>() ? "true" : "false";
+    return it->dump();
 }
 
 enum wxbuildinfoformat {
@@ -135,10 +149,11 @@ void RemoteFalconFrame::DoSendPlaylists() {
         try {
             nlohmann::json const val = nlohmann::json::parse(res);
 
-            if (!val.is_null() && !val["message"].is_null() && val["message"].get<std::string>() == "Success") {
+            std::string message = JsonAsString(val, "message");
+            if (!val.is_null() && message == "Success") {
                 _oldSteps = plsteps;
-            } else if (!val.is_null() && !val["message"].is_null()) {
-                AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + val["message"].get<std::string>());
+            } else if (!val.is_null() && !message.empty()) {
+                AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + message);
             } else if (val.is_null()) {
                 AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: uploading playlist to remote falcon.");
             }
@@ -159,6 +174,23 @@ void RemoteFalconFrame::AddMessage(MESSAGE_LEVEL msgLevel, const std::string& ms
         e.SetString(msg);
         wxPostEvent(this, e);
         _toProcess++;
+    }
+}
+
+void RemoteFalconFrame::LogViewerControlResponse(const std::string& res)
+{
+    try {
+        nlohmann::json const val = nlohmann::json::parse(res);
+        std::string message = JsonAsString(val, "message");
+        if (!message.empty() && message != "Success") {
+            AddMessage(MESSAGE_LEVEL::ML_ERROR, "    ERROR: " + message);
+        } else {
+            AddMessage(MESSAGE_LEVEL::ML_DEBUG, "    OK.");
+        }
+    } catch (const nlohmann::json::exception& ex) {
+        AddMessage(MESSAGE_LEVEL::ML_ERROR, "    ERROR: " + std::string(ex.what()));
+    } catch (const std::exception& ex) {
+        AddMessage(MESSAGE_LEVEL::ML_ERROR, "    ERROR: " + std::string(ex.what()));
     }
 }
 
@@ -233,7 +265,7 @@ RemoteFalconFrame::RemoteFalconFrame(wxWindow* parent, const std::string& showDi
     // only start the timer when we start the service
     Timer_UpdatePlaylist.Stop();
 
-    SetTitle("Remote Falcon " + GetDisplayVersionString());
+    SetTitle("Remote Falcon " + GetXScheduleDisplayVersionString());
 
     xSchedule::Initialise(action);
 
@@ -284,10 +316,11 @@ RemoteFalconFrame::RemoteFalconFrame(wxWindow* parent, const std::string& showDi
             try {
                 nlohmann::json const val = nlohmann::json::parse(res);
 
-                if (!val.is_null() && !val["message"].is_null() && val["message"].get<std::string>() == "Success") {
+                std::string message = JsonAsString(val, "message");
+                if (!val.is_null() && message == "Success") {
                     AddMessage(MESSAGE_LEVEL::ML_INFO, "Cleared remote falcon list of songs.");
-                } else if (!val.is_null() && !val["message"].is_null()) {
-                    AddMessage(MESSAGE_LEVEL::ML_ERROR, "Error: " + val["message"].get<std::string>());
+                } else if (!val.is_null() && !message.empty()) {
+                    AddMessage(MESSAGE_LEVEL::ML_ERROR, "Error: " + message);
                 } else {
                     AddMessage(MESSAGE_LEVEL::ML_ERROR, "Error: " + res);
                 }
@@ -337,7 +370,7 @@ void RemoteFalconFrame::OnQuit(wxCommandEvent& event)
 
 void RemoteFalconFrame::OnAbout(wxCommandEvent& event)
 {
-    auto about = wxString::Format(wxT("RemoteFalcon v%s."), GetDisplayVersionString());
+    auto about = wxString::Format(wxT("RemoteFalcon v%s."), GetXScheduleDisplayVersionString());
     wxMessageBox(about, _("Welcome to..."));
 }
 
@@ -463,7 +496,7 @@ void RemoteFalconFrame::Start()
 
     if (_options.IsEnableDisable()) {
         AddMessage(MESSAGE_LEVEL::ML_INFO, "Asking remote falcon to enable viewer control.");
-        AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + _remoteFalcon->EnableViewerControl(true));
+        LogViewerControlResponse(_remoteFalcon->EnableViewerControl(true));
         _viewerControlEnabled = true;
     }
 
@@ -477,7 +510,7 @@ void RemoteFalconFrame::Stop(bool suppressMessage)
 
     if (_options.IsEnableDisable()) {
         AddMessage(MESSAGE_LEVEL::ML_INFO, "Asking remote falcon to disable viewer control.");
-        AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + _remoteFalcon->EnableViewerControl(false));
+        LogViewerControlResponse(_remoteFalcon->EnableViewerControl(false));
         _viewerControlEnabled = false;
     }
 
@@ -526,14 +559,11 @@ void RemoteFalconFrame::GetMode()
     try {
         nlohmann::json const val = nlohmann::json::parse(res);
         if (!val.is_null()) {
-            if (!val["viewerControlMode"].is_null()) {
-                _mode = val["viewerControlMode"].get<std::string>();
-            }
-            if (!val["remoteSubdomain"].is_null()) {
-                _subdomain = val["remoteSubdomain"].get<std::string>();
-            }
-            if (!val["message"].is_null()) {
-                AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + val["message"].get<std::string>());
+            _mode = JsonAsString(val, "viewerControlMode");
+            _subdomain = JsonAsString(val, "remoteSubdomain");
+            std::string message = JsonAsString(val, "message");
+            if (!message.empty()) {
+                AddMessage(MESSAGE_LEVEL::ML_ERROR, "ERROR: " + message);
             }
         }
 
@@ -591,14 +621,10 @@ void RemoteFalconFrame::GetAndPlaySong(const std::string& playing)
         std::string nextSong;
         if (!val.is_null()) {
             if (_mode == "voting") {
-                if (!val["winningPlaylist"].is_null()) {
-                    nextSong = val["winningPlaylist"].get<std::string>();
-                }
+                nextSong = JsonAsString(val, "winningPlaylist");
             }
             else {
-                if (!val["nextPlaylist"].is_null()) {
-                    nextSong = val["nextPlaylist"].get<std::string>();
-                }
+                nextSong = JsonAsString(val, "nextPlaylist");
             }
         }
 
@@ -660,13 +686,9 @@ void RemoteFalconFrame::GetAndPlayEffect() {
         std::string nextSong;
         if (!val.is_null()) {
             if (_mode == "voting") {
-                if (!val["winningPlaylist"].is_null()) {
-                    nextSong = val["winningPlaylist"].get<std::string>();
-                }
+                nextSong = JsonAsString(val, "winningPlaylist");
             } else {
-                if (!val["nextPlaylist"].is_null()) {
-                    nextSong = val["nextPlaylist"].get<std::string>();
-                }
+                nextSong = JsonAsString(val, "nextPlaylist");
             }
         }
 
@@ -706,7 +728,7 @@ void RemoteFalconFrame::DoNotifyStatus(const std::string& status)
                 if (effects.size() > 0)
                     playing = effects.front();
             } else {
-                playing = val.value("step", std::string());
+                playing = JsonAsString(val, "step");
             }
 
             if (_lastPlaying != playing) {
@@ -714,13 +736,13 @@ void RemoteFalconFrame::DoNotifyStatus(const std::string& status)
                 _lastPlaying = playing;
             }
 
-            auto trigger = val.value("trigger", std::string());
+            auto trigger = JsonAsString(val, "trigger");
 
             // Only play songs if a schedule is playing
             if (trigger == "scheduled" || trigger == "queued") {
-                int queueLength = wxAtoi(val.value("queuelength", std::string()));
-                auto lefts = wxAtol(val.value("leftms", std::string())) / 1000;
-                _playingPlaylist = val.value("playlist", std::string());
+                int queueLength = wxAtoi(JsonAsString(val, "queuelength"));
+                auto lefts = wxAtol(JsonAsString(val, "leftms")) / 1000;
+                _playingPlaylist = JsonAsString(val, "playlist");
 
                 // we can only play a song if the playlist playing allows
                 if (_options.IsPlayDuring(_playingPlaylist) || _playingPlaylist == "Song Queue") {
@@ -728,7 +750,7 @@ void RemoteFalconFrame::DoNotifyStatus(const std::string& status)
                     if (!_viewerControlEnabled) {
                         if (_options.IsEnableDisable()) {
                             AddMessage(MESSAGE_LEVEL::ML_INFO, "Asking remote falcon to enable viewer control.");
-                            AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + _remoteFalcon->EnableViewerControl(true));
+                            LogViewerControlResponse(_remoteFalcon->EnableViewerControl(true));
                             _viewerControlEnabled = true;
                         }
                     }
@@ -749,7 +771,7 @@ void RemoteFalconFrame::DoNotifyStatus(const std::string& status)
                     if (_viewerControlEnabled) {
                         if (_options.IsEnableDisable()) {
                             AddMessage(MESSAGE_LEVEL::ML_INFO, "Asking remote falcon to disable viewer control.");
-                            AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + _remoteFalcon->EnableViewerControl(false));
+                            LogViewerControlResponse(_remoteFalcon->EnableViewerControl(false));
                             _viewerControlEnabled = false;
                         }
                     }
@@ -760,7 +782,7 @@ void RemoteFalconFrame::DoNotifyStatus(const std::string& status)
                 if (_viewerControlEnabled) {
                     if (_options.IsEnableDisable()) {
                         AddMessage(MESSAGE_LEVEL::ML_INFO, "Asking remote falcon to disable viewer control.");
-                        AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + _remoteFalcon->EnableViewerControl(false));
+                        LogViewerControlResponse(_remoteFalcon->EnableViewerControl(false));
                         _viewerControlEnabled = false;
                     }
                 }
@@ -841,12 +863,12 @@ bool RemoteFalconFrame::SendCommand(const std::string& command, const std::strin
     else if (command == "viewer_control") {
         if (parameters == "start") {
             AddMessage(MESSAGE_LEVEL::ML_INFO, "Asking remote falcon to enable viewer control.");
-            AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + _remoteFalcon->EnableViewerControl(true));
+            LogViewerControlResponse(_remoteFalcon->EnableViewerControl(true));
             _viewerControlEnabled = true;
             return true;
         } else if (parameters == "stop") {
             AddMessage(MESSAGE_LEVEL::ML_INFO, "Asking remote falcon to disable viewer control.");
-            AddMessage(MESSAGE_LEVEL::ML_INFO, "    " + _remoteFalcon->EnableViewerControl(false));
+            LogViewerControlResponse(_remoteFalcon->EnableViewerControl(false));
             _viewerControlEnabled = false;
             return true;
         } else {

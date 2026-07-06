@@ -61,8 +61,10 @@ PluginManager::PluginState::PluginState(wxDynamicLibrary* dl, const std::string&
 PluginManager::PluginState::~PluginState()
 {
     if (_dl) {
+        spdlog::debug("PluginState destructor unloading dynamic library '{}'.", _filename);
         ///_dl->Detach(); ????
         delete _dl;
+        spdlog::debug("PluginState destructor unloaded dynamic library '{}'.", _filename);
     }
 }
 
@@ -151,6 +153,7 @@ void PluginManager::DoUnload(const std::string& plugin)
     if (fn != nullptr) {
         spdlog::debug("Unloading plugin {}", plugin);
         fn();
+        spdlog::debug("Unloaded plugin {}", plugin);
     }
 }
 
@@ -353,6 +356,8 @@ void PluginManager::RegisterStaticPlugins() {
 
 void PluginManager::Initialise(const std::string& showDir)
 {
+    spdlog::debug("PluginManager::Initialise starting for show dir '{}'.", showDir);
+
     // scan xSchedule folder first
 
     wxFileName fi(wxStandardPaths::Get().GetExecutablePath().ToStdString());
@@ -364,10 +369,14 @@ void PluginManager::Initialise(const std::string& showDir)
 
     // then add anything that is statically compiled in
     RegisterStaticPlugins();
-    
+
     for (auto it : _plugins) {
+        spdlog::debug("PluginManager::Initialise loading plugin '{}'.", it.first);
         DoLoad(it.first, (char*)showDir.c_str());
+        spdlog::debug("PluginManager::Initialise loaded plugin '{}'.", it.first);
     }
+
+    spdlog::debug("PluginManager::Initialise complete. {} plugin(s).", _plugins.size());
 }
 
 bool PluginManager::StartPlugin(const std::string& plugin, const std::string& showDir, const std::string& xScheduleURL)
@@ -416,12 +425,17 @@ void PluginManager::WipeSettings()
 
 void PluginManager::Uninitialise()
 {
+    spdlog::debug("PluginManager::Uninitialise starting. {} plugin(s).", _plugins.size());
     for (auto it : _plugins)
     {
+        spdlog::debug("PluginManager::Uninitialise unloading plugin '{}'.", it.first);
         DoUnload(it.first);
+        spdlog::debug("PluginManager::Uninitialise unloaded plugin '{}'. Deleting plugin state.", it.first);
         delete it.second;
+        spdlog::debug("PluginManager::Uninitialise deleted plugin state for '{}'.", it.first);
     }
     _plugins.clear();
+    spdlog::debug("PluginManager::Uninitialise complete.");
 }
 
 std::vector<std::string> PluginManager::GetPlugins() const

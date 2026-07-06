@@ -65,6 +65,7 @@ class RemoteFalconFrame : public wxFrame
     void ValidateWindow();
     void AddMessage(MESSAGE_LEVEL lvl, const std::string& msg);
     void DoAddMessage(const std::string& msg);
+    void LogViewerControlResponse(const std::string& res);
     void DoNotifyStatus(const std::string& status);
     void DoSendPlayingSong(const std::string& playing);
     void SendPlayingSong(const std::string& playing);
