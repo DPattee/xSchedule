@@ -342,27 +342,34 @@ int ScheduleManager::DoSync(const std::string& filename, long ms) {
 }
 
 ScheduleManager::~ScheduleManager() {
+    spdlog::debug("ScheduleManager destructor starting.");
     AllOff();
+    spdlog::debug("ScheduleManager destructor: stopping output.");
     _outputManager->StopOutput();
     SetConfigBool("OutputActive", false);
 #ifdef __WXMSW__
     ::SetPriorityClass(::GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
 #endif
+    spdlog::debug("ScheduleManager destructor: stopping virtual matrices.");
     StopVirtualMatrices();
     ManageBackground();
     spdlog::info("Stopped outputting to lights.");
 
     if (IsDirty()) {
+        spdlog::debug("ScheduleManager destructor: schedule is dirty, prompting to save.");
         if (wxMessageBox("Unsaved changes to the schedule. Save now?", "Unsaved changes", wxYES_NO) == wxYES) {
             Save();
         }
     }
 
+    spdlog::debug("ScheduleManager destructor: stopping sync manager.");
     _syncManager->Stop(GetForceLocalIP());
 
     if (_listenerManager != nullptr) {
+        spdlog::debug("ScheduleManager destructor: stopping listener manager.");
         _listenerManager->Stop();
         delete _listenerManager;
+        spdlog::debug("ScheduleManager destructor: listener manager stopped.");
     }
 
     while (_overlayData.size() > 0) {
@@ -436,6 +443,7 @@ ScheduleManager::~ScheduleManager() {
 #endif
 
     spdlog::info("Closed schedule.");
+    spdlog::debug("ScheduleManager destructor complete.");
 }
 
 std::list<PlayListItem*> ScheduleManager::GetPlayListIps() const {

@@ -27,7 +27,7 @@
 #include <wx/dirdlg.h>
 #include <wx/url.h>
 
-#include "../../xlights/xLights/xLightsVersion.h"
+#include "../xScheduleVersion.h"
 #include "xSMSDaemonMain.h"
 
 #include "../../xlights/include/xLights.xpm"
@@ -197,7 +197,7 @@ xSMSDaemonFrame::xSMSDaemonFrame(wxWindow* parent, const std::string& showDir, c
     //Timer_Second.SetName("xSMSDaemon second timer");
     //SendTimer.SetName("xSMSDaemon send timer");
 
-    SetTitle("xLights SMS Daemon " + GetDisplayVersionString());
+    SetTitle("xLights SMS Daemon " + GetXScheduleDisplayVersionString());
 
     wxIconBundle icons;
     icons.AddIcon(wxIcon(xlights_16_xpm));
@@ -383,7 +383,7 @@ void xSMSDaemonFrame::OnQuit(wxCommandEvent& event)
 
 void xSMSDaemonFrame::OnAbout(wxCommandEvent& event)
 {
-    auto about = wxString::Format(wxT("xSMSDaemon v%s."), GetDisplayVersionString());
+    auto about = wxString::Format(wxT("xSMSDaemon v%s."), GetXScheduleDisplayVersionString());
     wxMessageBox(about, _("Welcome to..."));
 }
 

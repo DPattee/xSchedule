@@ -916,17 +916,7 @@ xScheduleFrame::xScheduleFrame(wxWindow* parent, const std::string& showdir, con
 
     spdlog::debug("Loading plugins.");
     _pluginManager.Initialise(_showDir);
-
-    for (auto it : _pluginManager.GetPlugins())     {
-        wxMenuItem* mi = Menu_Plugins->Append(_pluginManager.GetId(it), _pluginManager.GetMenuLabel(it), nullptr);
-        mi->SetCheckable(true);
-        Connect(_pluginManager.GetId(it), wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xScheduleFrame::OnPluginMenu);
-        if (config->ReadBool(_("Plugin") + it, false))         {
-            if (_pluginManager.StartPlugin(it, _showDir, __schedule->GetOptions()->GetOurURL()))             {
-                mi->Check(true);
-            }
-        }
-    }
+    RebuildPluginsMenu();
     spdlog::debug("Plugins loaded.");
 
 #if !defined(_DEBUG)
@@ -986,11 +976,15 @@ void xScheduleFrame::LoadSchedule()
 
     if (__schedule != nullptr)
     {
+        spdlog::debug("LoadSchedule: deleting existing ScheduleManager.");
         delete __schedule;
         __schedule = nullptr;
+        spdlog::debug("LoadSchedule: existing ScheduleManager deleted.");
     }
 
+    spdlog::debug("LoadSchedule: constructing new ScheduleManager for '{}'.", _showDir);
     __schedule = new ScheduleManager(this, _showDir);
+    spdlog::debug("LoadSchedule: new ScheduleManager constructed.");
 
     _pinger = new Pinger(__schedule->GetListenerManager(), __schedule->GetOutputManager());
     __schedule->SetPinger(_pinger);
@@ -1048,6 +1042,29 @@ void xScheduleFrame::LoadSchedule()
     CreateButtons();
 
     spdlog::debug("Schedule loaded.");
+}
+
+void xScheduleFrame::RebuildPluginsMenu()
+{
+    wxConfigBase* config = wxConfigBase::Get();
+
+    // remove any menu items (and their event bindings) left over from a previous show folder
+    auto oldItems = Menu_Plugins->GetMenuItems();
+    for (auto item : oldItems) {
+        Disconnect(item->GetId(), wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xScheduleFrame::OnPluginMenu);
+        Menu_Plugins->Delete(item);
+    }
+
+    for (auto it : _pluginManager.GetPlugins()) {
+        wxMenuItem* mi = Menu_Plugins->Append(_pluginManager.GetId(it), _pluginManager.GetMenuLabel(it), nullptr);
+        mi->SetCheckable(true);
+        Connect(_pluginManager.GetId(it), wxEVT_COMMAND_MENU_SELECTED, (wxObjectEventFunction)&xScheduleFrame::OnPluginMenu);
+        if (config->ReadBool(_("Plugin") + it, false)) {
+            if (_pluginManager.StartPlugin(it, _showDir, __schedule->GetOptions()->GetOurURL())) {
+                mi->Check(true);
+            }
+        }
+    }
 }
 
 void xScheduleFrame::AddIPs()
@@ -1548,19 +1565,30 @@ bool xScheduleFrame::SelectShowFolder()
 
 void xScheduleFrame::OnMenuItem_ShowFolderSelected(wxCommandEvent& event)
 {
+    spdlog::debug("ShowFolderSelected: menu item invoked.");
     if (SelectShowFolder())
     {
+        spdlog::debug("ShowFolderSelected: new show folder '{}' selected. Stopping plugins.", _showDir);
+        _pluginManager.StopPlugins();
+        spdlog::debug("ShowFolderSelected: plugins stopped. Uninitialising plugins.");
         _pluginManager.Uninitialise();
+        spdlog::debug("ShowFolderSelected: plugins uninitialised. Stopping timers.");
         _timerSchedule.Stop();
         _timer.Stop();
+        spdlog::debug("ShowFolderSelected: timers stopped. Loading schedule.");
         LoadSchedule();
+        spdlog::debug("ShowFolderSelected: schedule loaded. Restarting timers.");
         wxASSERT(__schedule != nullptr);
         _useHalfFrames = true;
         _timer.Start(50 / 2, false);
         _timerSchedule.Start(500, false);
+        spdlog::debug("ShowFolderSelected: timers restarted. Initialising plugins.");
         _pluginManager.Initialise(_showDir);
+        RebuildPluginsMenu();
+        spdlog::debug("ShowFolderSelected: plugins initialised.");
     }
     ValidateWindow();
+    spdlog::debug("ShowFolderSelected: complete.");
 }
 
 void xScheduleFrame::SaveShowDir() const
@@ -1863,6 +1891,8 @@ void xScheduleFrame::UpdateSchedule()
 
 void xScheduleFrame::On_timerScheduleTrigger(wxTimerEvent& event)
 {
+    if (__schedule == nullptr) return;
+
     if (__schedule->IsFPPRemoteOrMaster()) {
         SyncFPP::Ping(__schedule->IsSlave(), __schedule->GetForceLocalIP());
     }

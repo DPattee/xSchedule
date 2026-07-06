@@ -87,6 +87,7 @@ class xScheduleFrame : public xlFrame {
     void UpdateSchedule();
     std::string GetScheduleName(Schedule* schedule, const std::list<RunningSchedule*>& active) const;
     void LoadSchedule();
+    void RebuildPluginsMenu();
     bool HandleHotkeys(wxKeyEvent& event);
     bool HandleSpecialKeys(wxKeyEvent& event);
     void AddPlayList(bool forceadvanced = false);
