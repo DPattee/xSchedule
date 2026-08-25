@@ -62,6 +62,7 @@ When adding new `.cpp`/`.h` files, the following project files must be updated m
   - `xlights/common/` — base application framework
   - `xlights/include/` — shared headers, icons
   - `xlights/dependencies/` — pugixml, spdlog submodules
+- **`controllers/`** — local copies of the `.xcontroller` hardware-definition XML files, bundled by the Windows installer into `{app}/controllers` so a standalone xSchedule install works without xLights also being installed (see note below). Runtime code that reads this folder (`ControllerCaps::LoadControllers()`) lives in `xlights/xLights/controllers/ControllerCaps.cpp`.
 - **`bin/`** — xScheduleWeb directory, desktop files
 - **`images/icons/`** — application icons for Linux
 
@@ -86,3 +87,7 @@ xSchedule source files reference shared code via `../xlights/` paths:
 ## Key Dependencies
 
 wxWidgets 3.3 (custom fork `xLightsSequencer/wxWidgets`, branch `xlights_2026.04`), spdlog, libcurl, pugixml, FFmpeg, SDL2, PortMIDI, libltc, zstd, nlohmann/json.
+
+## Maintenance Notes
+
+- **`controllers/` is a hand-maintained duplicate of `xlights/controllers/`.** It was added (2026-08) to fix a standalone-install bug (xSchedule issue #13: installer never packaged a `controllers` folder, so `ControllerCaps::LoadControllers()` logged "Controllers folder not found" and every controller showed disconnected). Deliberately NOT sourced from the `xlights` submodule at install/build time, to avoid depending on upstream xLights changes/PRs for an xSchedule-only bug fix. Consequence: when upstream xLights adds a new controller vendor or edits an existing `.xcontroller` file, this copy will NOT pick it up automatically — periodically diff `controllers/` against `xlights/controllers/` and re-copy as needed, especially before cutting an xSchedule release.
