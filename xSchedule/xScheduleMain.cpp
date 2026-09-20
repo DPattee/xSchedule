@@ -1275,6 +1275,9 @@ bool xScheduleFrame::CheckForUpdate(bool showMessageBoxes)
         }
     }
 
+    // currentVersion comes from xschedule_version_string in xScheduleVersion.h.
+    // urlVersion comes from the GitHub Releases API tag_name (or name) of the
+    // newest non-nightly release that has a platform installer asset.
     std::string currentVersion = xschedule_version_string;
     spdlog::info("xSchedule current version: '{}'. Latest available: '{}'. Skip version: '{}'.",
                  currentVersion, urlVersion, skipver.ToStdString());
