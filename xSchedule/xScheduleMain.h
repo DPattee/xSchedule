@@ -130,7 +130,7 @@ public:
     static ScheduleManager* GetScheduleManager() {
         return __schedule;
     }
-    xScheduleFrame(wxWindow* parent, const std::string& showdir = "", const std::string& playlist = "", wxWindowID id = -1);
+    xScheduleFrame(wxWindow* parent, const std::string& showdir = "", const std::string& playlist = "", bool skipUpdateCheck = false, wxWindowID id = -1);
     virtual ~xScheduleFrame();
     virtual void CreateDebugReport(xlCrashHandler* crashHandler) override;
     void CreateButton(const std::string& label, const wxColor& c);

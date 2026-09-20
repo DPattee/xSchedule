@@ -312,12 +312,14 @@ bool xScheduleApp::OnInit()
         { wxCMD_LINE_OPTION, "p", "playlist", "specify the playlist to play" },
         { wxCMD_LINE_SWITCH, "w", "wipe", "wipe settings clean" },
         { wxCMD_LINE_SWITCH, "x", "exit", "exit silently if another instance is runnning" },
+        { wxCMD_LINE_SWITCH, "n", "noupdate", "skip automatic update check" },
         { wxCMD_LINE_NONE }
     };
 
     bool parmfound = false;
     bool wipeSettings = false;
     bool exitIfRunning = false;
+    bool skipUpdateCheck = false;
     wxString showDir;
     wxString playlist;
     wxCmdLineParser parser(cmdLineDesc, argc, argv);
@@ -343,6 +345,10 @@ bool xScheduleApp::OnInit()
         if (parser.Found("p", &playlist)) {
             parmfound = true;
             spdlog::info("-p: Playlist to play {}.", (const char*)playlist.c_str());
+        }
+        if (parser.Found("n")) {
+            spdlog::info("-n: Skipping automatic update check.");
+            skipUpdateCheck = true;
         }
         if (!parmfound && parser.GetParamCount() > 0) {
             spdlog::info("Unrecognised command line parameter found.");
@@ -378,7 +384,7 @@ bool xScheduleApp::OnInit()
     bool wxsOK = true;
     wxInitAllImageHandlers();
     if (wxsOK) {
-        xScheduleFrame* Frame = new xScheduleFrame(0, showDir, playlist);
+        xScheduleFrame* Frame = new xScheduleFrame(0, showDir.ToStdString(), playlist.ToStdString(), skipUpdateCheck);
         Frame->Show();
         SetTopWindow(Frame);
         if (wipeSettings)

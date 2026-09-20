@@ -387,7 +387,7 @@ BEGIN_EVENT_TABLE(xScheduleFrame,wxFrame)
 // Number of MS after a slow event to show the slow icon for
 #define SLOW_FOR_MS 1500
 
-xScheduleFrame::xScheduleFrame(wxWindow* parent, const std::string& showdir, const std::string& playlist, wxWindowID id)
+xScheduleFrame::xScheduleFrame(wxWindow* parent, const std::string& showdir, const std::string& playlist, bool skipUpdateCheck, wxWindowID id)
 {
     OutputManager::SetInteractive(false);
     __schedule = nullptr;
@@ -919,9 +919,13 @@ xScheduleFrame::xScheduleFrame(wxWindow* parent, const std::string& showdir, con
     RebuildPluginsMenu();
     spdlog::debug("Plugins loaded.");
 
+    if (skipUpdateCheck) {
+        spdlog::info("Automatic update check skipped.");
+    } else {
 #if !defined(_DEBUG)
-    CheckForUpdate(false);
+        CheckForUpdate(false);
 #endif
+    }
 }
 
 void xScheduleFrame::LoadSchedule()
