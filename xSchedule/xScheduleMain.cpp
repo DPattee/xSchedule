@@ -1294,6 +1294,10 @@ bool xScheduleFrame::CheckForUpdate(bool showMessageBoxes)
             wxButton* btnIgnore = new wxButton(&dlg, wxID_NO, "Ignore this version");
             wxButton* btnSkip = new wxButton(&dlg, wxID_CANCEL, "Skip this time");
             btnSkip->SetDefault();
+            // wxDialog only auto-closes wxID_OK / wxID_CANCEL; wxID_NO must EndModal itself.
+            btnIgnore->Bind(wxEVT_BUTTON, [&dlg](wxCommandEvent&) {
+                dlg.EndModal(wxID_NO);
+            });
             hs->Add(btnDownload, 1, wxALL, 5);
             hs->Add(btnIgnore, 1, wxALL, 5);
             hs->Add(btnSkip, 1, wxALL, 5);
@@ -1304,13 +1308,22 @@ bool xScheduleFrame::CheckForUpdate(bool showMessageBoxes)
             if (result == wxID_OK) {
                 spdlog::info("User downloading xSchedule update to version {}.", urlVersion);
                 wxLaunchDefaultBrowser(downloadURL);
-                if (config) config->Write("xsSkipVersion", "");
+                if (config != nullptr) {
+                    config->Write("xsSkipVersion", "");
+                    config->Flush();
+                }
             } else if (result == wxID_NO) {
                 spdlog::info("User ignoring xSchedule update to version {}.", urlVersion);
-                if (config) config->Write("xsSkipVersion", wxString(urlVersion));
+                if (config != nullptr) {
+                    config->Write("xsSkipVersion", wxString(urlVersion));
+                    config->Flush();
+                }
             } else {
                 spdlog::info("User skipping xSchedule update to version {}.", urlVersion);
-                if (config) config->Write("xsSkipVersion", "");
+                if (config != nullptr) {
+                    config->Write("xsSkipVersion", "");
+                    config->Flush();
+                }
             }
         }
     } else {
