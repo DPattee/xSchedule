@@ -919,7 +919,7 @@ xScheduleFrame::xScheduleFrame(wxWindow* parent, const std::string& showdir, con
     RebuildPluginsMenu();
     spdlog::debug("Plugins loaded.");
 
-    if (skipUpdateCheck) {
+    if (skipUpdateCheck || (__schedule != nullptr && __schedule->GetOptions()->IsDisableUpdateChecks())) {
         spdlog::info("Automatic update check skipped.");
     } else {
 #if !defined(_DEBUG)

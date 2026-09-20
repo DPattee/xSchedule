@@ -49,6 +49,7 @@ const long OptionsDialog::ID_CHECKBOX15 = wxNewId();
 const long OptionsDialog::ID_CHECKBOX16 = wxNewId();
 const long OptionsDialog::ID_CHECKBOX17 = wxNewId();
 const long OptionsDialog::ID_CHECKBOX18 = wxNewId();
+const long OptionsDialog::ID_CHECKBOX19 = wxNewId();
 const long OptionsDialog::ID_STATICTEXT2 = wxNewId();
 const long OptionsDialog::ID_LISTVIEW1 = wxNewId();
 const long OptionsDialog::ID_BUTTON5 = wxNewId();
@@ -161,6 +162,9 @@ OptionsDialog::OptionsDialog(wxWindow* parent, CommandManager* commandManager, S
     CheckBoxSuppressDarkMode = new wxCheckBox(this, ID_CHECKBOX18, _("Suppress Dark Mode"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_CHECKBOX18"));
     CheckBoxSuppressDarkMode->SetValue(false);
     FlexGridSizer7->Add(CheckBoxSuppressDarkMode, 1, wxALL | wxEXPAND, 5);
+    CheckBox_DisableUpdateChecks = new wxCheckBox(this, ID_CHECKBOX19, _("Disable update checks"), wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator, _T("ID_CHECKBOX19"));
+    CheckBox_DisableUpdateChecks->SetValue(false);
+    FlexGridSizer7->Add(CheckBox_DisableUpdateChecks, 1, wxALL | wxEXPAND, 5);
     FlexGridSizer1->Add(FlexGridSizer7, 1, wxALL | wxEXPAND, 5);
     FlexGridSizer5 = new wxFlexGridSizer(0, 3, 0, 0);
     FlexGridSizer5->AddGrowableCol(1);
@@ -334,6 +338,7 @@ OptionsDialog::OptionsDialog(wxWindow* parent, CommandManager* commandManager, S
     CheckBox_DisableOutputOnPingFailure->SetValue(options->IsDisableOutputOnPingFailure());
     CheckBox_SongMMSSFormat->SetValue(options->IsUseStepMMSSTimecodeFormat());
     CheckBox_TimecodeWaitForNextSong->SetValue(options->IsRemoteTimecodeStepAdvance());
+    CheckBox_DisableUpdateChecks->SetValue(options->IsDisableUpdateChecks());
 
 #ifdef __WXMSW__
     CheckBoxSuppressDarkMode->SetValue(IsSuppressDarkMode());
@@ -455,6 +460,7 @@ void OptionsDialog::OnButton_OkClick(wxCommandEvent& event) {
     _options->SetSMPTEDevice(Choice_SMPTEDevice->GetStringSelection());
     _options->SetStepMMSSTimecodeFormat(CheckBox_SongMMSSFormat->GetValue());
     _options->SetRemoteTimecodeStepAdvance(CheckBox_TimecodeWaitForNextSong->GetValue());
+    _options->SetDisableUpdateChecks(CheckBox_DisableUpdateChecks->GetValue());
 
     if (Choice_AudioDevice->GetStringSelection() == "(Default)") {
         _options->SetAudioDevice("");
