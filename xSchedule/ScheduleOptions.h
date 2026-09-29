@@ -338,6 +338,7 @@ class ScheduleOptions {
     bool _hardwareAcceleratedVideo = false;
     bool _lateStartingScheduleUsesTime = false;
     bool _disableOutputOnPingFailure = false;
+    bool _disableUpdateChecks = false;
     int _SMPTEMode = 3;
     std::string _SMPTEDevice = "";
     bool _minimiseUIUpdates = false;
@@ -561,6 +562,15 @@ public:
     }
     bool IsDisableOutputOnPingFailure() const {
         return _disableOutputOnPingFailure;
+    }
+    void SetDisableUpdateChecks(bool disableUpdateChecks) {
+        if (_disableUpdateChecks != disableUpdateChecks) {
+            _disableUpdateChecks = disableUpdateChecks;
+            _changeCount++;
+        }
+    }
+    bool IsDisableUpdateChecks() const {
+        return _disableUpdateChecks;
     }
     void SetArtNetTimeCodeFormat(TIMECODEFORMAT artNetTimeCodeFormat) {
         if (artNetTimeCodeFormat != _artNetTimeCodeFormat) {

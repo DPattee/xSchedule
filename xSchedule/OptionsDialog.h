@@ -53,6 +53,7 @@ class OptionsDialog: public wxDialog
 		wxButton* Button_Import;
 		wxButton* Button_Ok;
 		wxCheckBox* CheckBoxSuppressDarkMode;
+		wxCheckBox* CheckBox_DisableUpdateChecks;
 		wxCheckBox* CheckBox_APIOnly;
 		wxCheckBox* CheckBox_AlllowPageBypass;
 		wxCheckBox* CheckBox_DisableOutputOnPingFailure;
@@ -119,6 +120,7 @@ class OptionsDialog: public wxDialog
 		static const long ID_CHECKBOX16;
 		static const long ID_CHECKBOX17;
 		static const long ID_CHECKBOX18;
+		static const long ID_CHECKBOX19;
 		static const long ID_STATICTEXT2;
 		static const long ID_LISTVIEW1;
 		static const long ID_BUTTON5;
